@@ -49,9 +49,8 @@ type TodoItemUpdate struct {
 
 func (TodoItemUpdate) TableName() string { return TodoItem{}.TableName() }
 
-/*
-Tạo 1 struct để phân trang - sử dụng query string trên url
-*/
+/*Tạo 1 struct để phân trang - sử dụng query string trên url*/
+
 type Paging struct {
 	//Tham số Page thể hiện cho số trang
 	Page int `json:"page" form:"page"`
@@ -66,7 +65,7 @@ func (p *Paging) Process() {
 		p.Page = 1
 	}
 	if p.Limit <= 0 || p.Limit >= 100 {
-		p.Page = 10
+		p.Limit = 10
 	}
 }
 
@@ -289,21 +288,36 @@ func DeleteItem(db *gorm.DB) func(*gin.Context) {
 
 func ListItem(db *gorm.DB) func(*gin.Context) {
 	return func(c *gin.Context) {
-		var data Paging
+		var paging Paging
 
-		if err := c.ShouldBind(&data); err != nil {
+		if err := c.ShouldBind(&paging); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
 
 			return
 		}
-		data.Process()
+		paging.Process()
+
 		var result []TodoItem
-		if err := db.Limit(data.Limit).Find(&result).Error; err != nil {
-			/*sắp xếp list theo id giảm dần DESC - tăng dần ASC (mặc định là ASC)
-			if err := db.Order("id desc").Find(&result).Error;
-			*/
+
+		/*Dùng câu query khi Soft Delete để không hiển thị các column status có giá trị Deleted hiển thị ra*/
+		db = db.Where("status <> ?", "Deleted")
+
+		if err := db.Table(TodoItem{}.TableName()).Count(&paging.Total).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+
+			return
+		}
+		/*sắp xếp list theo id giảm dần DESC - tăng dần ASC (mặc định là ASC)
+		if err := db.Order("id desc").Find(&result).Error;
+		*/
+		if err := db.Order("id desc").
+			Offset((paging.Page - 1) * paging.Limit).
+			Limit(paging.Limit).
+			Find(&result).Error; err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
@@ -313,6 +327,8 @@ func ListItem(db *gorm.DB) func(*gin.Context) {
 
 		c.JSON(http.StatusOK, gin.H{
 			"data": result,
+			/*hiển thị total*/
+			"paging": paging,
 		})
 	}
 }
