@@ -29,12 +29,12 @@ jobs:
           name: Run tests
           command: |
             mkdir -p /tmp/test-reports
-            gotestsum --junitfile /tmp/test-reports/unit-tests.xml
       - store_test_results:
           path: /tmp/test-reports
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/configuration-reference/#workflows
+# gotestsum --junitfile /tmp/test-reports/unit-tests.xml
 workflows:
   sample: # This is the name of the workflow, feel free to change it to better match your workflow.
     # Inside the workflow, you define the jobs you want to run.
